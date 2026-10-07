@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+data/
+dist/
+build/
+*.spec
+*.egg-info/
+.DS_Store
+.idea/
+.vscode/
+.playwright-mcp/
