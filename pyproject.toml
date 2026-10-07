@@ -1,0 +1,24 @@
+[project]
+name = "backuprestoredrill"
+version = "1.0.0"
+description = "Monthly sandbox restore drills for Hostinger site backups"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "PyYAML==6.0.3",
+  "keyring==25.7.0",
+]
+
+[project.scripts]
+backuprestoredrill = "backuprestoredrill.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

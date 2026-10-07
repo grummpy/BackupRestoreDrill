@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=BackupRestoreDrill
+Comment=Monthly sandbox restore drill for Hostinger site backups
+Exec=bash -c 'cd "$(dirname "$1")" && exec ./launch.sh' _ %k
+Icon=assets/icon.png
+Terminal=true
+Categories=Utility;
+StartupNotify=true

@@ -1,0 +1,47 @@
+# Local config is created from this file on first launch.
+# Paths are relative to the project folder. Nothing here is a real site.
+
+stale_after_days: 35
+port: 0
+open_browser: true
+static_only: false
+bind_host: 127.0.0.1
+
+# Optional and off. A token never belongs in this file.
+# Use HOSTINGER_API_TOKEN or: python -m backuprestoredrill token set
+hostinger:
+  enabled: false
+
+sites:
+  - name: Northwind Brochure
+    slug: brochure
+    type: static
+    enabled: true
+    backup: examples/brochure
+    production_url: https://brochure.example.test
+    use_sitemap: true
+    sitemap_path: /sitemap.xml
+    max_pages: 20
+    urls:
+      - path: /
+        expect_status: 200
+        title_contains: Northwind Brochure
+        text_contains:
+          - Welcome to the Northwind brochure
+      - path: /about.html
+        expect_status: 200
+        title_contains: About Northwind
+
+  # WordPress example. Download the files archive and SQL dump from hPanel first.
+  # - name: Example Journal
+  #   slug: example-journal
+  #   type: wordpress
+  #   backup: backups/example-journal.zip
+  #   sql_dump: backups/example-journal.sql
+  #   production_url: https://journal.example.test
+  #   urls:
+  #     - path: /
+  #       expect_status: 200
+  #       title_contains: Journal
+  #       text_contains:
+  #         - Hello

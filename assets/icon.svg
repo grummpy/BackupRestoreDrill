@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="BackupRestoreDrill">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#123049"/>
+      <stop offset="1" stop-color="#071422"/>
+    </linearGradient>
+    <linearGradient id="disk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4fffb"/>
+      <stop offset="1" stop-color="#9ee7ff"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 Z" fill="#7CFF3A"/>
+    </marker>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="214" fill="url(#bg)" stroke="#7CFF3A" stroke-width="36"/>
+  <g fill="none" stroke="#7CFF3A" stroke-width="48" stroke-linecap="round">
+    <path d="M 300 390 A 250 250 0 0 1 760 470" marker-end="url(#arrow)"/>
+    <path d="M 724 640 A 250 250 0 0 1 270 560" marker-end="url(#arrow)"/>
+  </g>
+  <g>
+    <rect x="392" y="400" width="240" height="62" rx="16" fill="url(#disk)" stroke="#d7fff4" stroke-width="4"/>
+    <rect x="392" y="478" width="240" height="62" rx="16" fill="url(#disk)" stroke="#d7fff4" stroke-width="4"/>
+    <rect x="392" y="556" width="240" height="62" rx="16" fill="url(#disk)" stroke="#d7fff4" stroke-width="4"/>
+    <path d="M418 431 H606 M418 509 H606 M418 587 H606" stroke="#0c3a4a" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <circle cx="668" cy="676" r="78" fill="#7CFF3A"/>
+  <path d="M628 678 L654 706 L712 642" fill="none" stroke="#073018" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
