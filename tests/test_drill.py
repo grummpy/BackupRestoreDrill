@@ -206,7 +206,7 @@ def test_wordpress_restore_with_mocked_docker(tmp_path: Path) -> None:
     assert result.report_path is not None
     report = result.report_path.read_text(encoding="utf-8")
     assert "PASS" in report
-    assert "Production was not modified" in report
+    assert "no FTP, SSH, or DNS changes" in report
 
 
 def test_teardown_runs_when_crawl_fails(tmp_path: Path) -> None:

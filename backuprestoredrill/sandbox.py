@@ -240,26 +240,31 @@ class Sandbox:
                     result = self.docker.remove(container)
                     if result is not None and result.returncode != 0:
                         problems.append(f"container {container}: {(result.stderr or result.stdout).strip()}")
+                    else:
+                        self.containers.remove(container)
                 except Exception as exc:  # noqa: BLE001
-                    problems.append(str(exc))
-            if not problems:
-                self.containers.clear()
+                    problems.append(f"container {container}: {exc}")
+            if self.db_container not in self.containers:
                 self.db_container = None
             if self.network:
                 try:
                     result = self.docker.remove_network(self.network)
                     if result is not None and result.returncode != 0:
                         problems.append(f"network {self.network}: {(result.stderr or result.stdout).strip()}")
+                    else:
+                        self.network = None
                 except Exception as exc:  # noqa: BLE001
-                    problems.append(str(exc))
-                if not problems:
-                    self.network = None
+                    problems.append(f"network {self.network}: {exc}")
         if self.scratch.exists():
-            shutil.rmtree(self.scratch, ignore_errors=True)
+            try:
+                shutil.rmtree(self.scratch)
+            except OSError as exc:
+                problems.append(f"scratch {self.scratch}: {exc}")
         if problems:
             self.cleanup_problems = problems
             self.log("Teardown finished with issues: " + "; ".join(problems))
         else:
+            self.cleanup_problems = []
             self.torn_down = True
             self.log("Sandbox torn down.")
 
