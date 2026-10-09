@@ -135,6 +135,42 @@ def test_teardown_exception_keeps_owned_ids_and_fails_drill(tmp_path: Path) -> N
     assert "Incomplete sandbox cleanup" in (result.error or "")
 
 
+def test_scratch_removal_failure_is_not_claimed_clean(tmp_path: Path, monkeypatch) -> None:
+    from backuprestoredrill.sandbox import Sandbox
+    import backuprestoredrill.sandbox as sandbox_module
+
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    monkeypatch.setattr(sandbox_module.shutil, "rmtree", lambda path: (_ for _ in ()).throw(OSError("busy")))
+    sandbox = Sandbox(docker=None, static_only=True, log=lambda message: None, scratch=scratch)
+    sandbox.teardown()
+    assert not sandbox.torn_down
+    assert any("scratch" in problem for problem in sandbox.cleanup_problems)
+
+
+def test_partial_cleanup_retry_retains_only_residual_ids(tmp_path: Path) -> None:
+    from backuprestoredrill.sandbox import Sandbox
+
+    class Partial(FakeDocker):
+        def __init__(self):
+            super().__init__()
+            self.fail = True
+        def remove(self, name):
+            self.removed.append(name)
+            return RunResult(1, "", "busy") if name == "bad" and self.fail else RunResult(0, "", "")
+        def remove_network(self, name): return RunResult(0, "", "")
+
+    docker = Partial()
+    sandbox = Sandbox(docker=docker, static_only=False, log=lambda message: None, scratch=tmp_path / "scratch")
+    sandbox.containers = ["good", "bad"]
+    sandbox.network = "net"
+    sandbox.teardown()
+    assert sandbox.containers == ["bad"] and sandbox.network is None and sandbox.cleanup_problems
+    docker.fail = False
+    sandbox.teardown()
+    assert sandbox.torn_down and sandbox.containers == [] and sandbox.cleanup_problems == []
+
+
 def _layout(tmp_path: Path):
     backup = tmp_path / "backup"
     backup.mkdir()
