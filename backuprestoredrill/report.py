@@ -99,7 +99,8 @@ def render_report(
   <p>{escape(db_line)}</p>
   <h2>Log</h2>
   <pre>{log_html}</pre>
-  <p class="muted">Sandbox only. Production was not modified. No FTP, SSH, or DNS changes were made.</p>
+  <p class="muted">Sandbox-only workflow: it makes no FTP, SSH, or DNS changes.
+  Restored code may still have Docker bridge egress; use synthetic fixtures only.</p>
 </main>
 </body>
 </html>

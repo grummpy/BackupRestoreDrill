@@ -41,6 +41,8 @@ def main() -> int:
         f"{ROOT / 'assets'}{';' if system == 'Windows' else ':'}assets",
         "--add-data",
         f"{ROOT / 'config.example.yaml'}{';' if system == 'Windows' else ':'}." ,
+        "--add-data",
+        f"{ROOT / 'examples' / 'brochure'}{';' if system == 'Windows' else ':'}examples/brochure",
         "--icon",
         str(icon),
         str(ROOT / "backuprestoredrill" / "__main__.py"),

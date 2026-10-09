@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -133,6 +134,10 @@ def run_drill(
         log(f"Drill failed: {exc}")
     finally:
         sandbox.teardown()
+    if sandbox.cleanup_problems:
+        passed = False
+        cleanup_error = "Incomplete sandbox cleanup: " + "; ".join(sandbox.cleanup_problems)
+        error = f"{error}; {cleanup_error}" if error else cleanup_error
     finished = utcnow()
     summary = _summary(passed, pages, error)
     record = DrillRecord(
@@ -192,6 +197,13 @@ def run_all(config: AppConfig, **kwargs) -> list[DrillResult]:
 def _resolve(root: Path, value: str) -> Path:
     path = Path(value).expanduser()
     if not path.is_absolute():
+        # A frozen app keeps persistent config/state outside its read-only
+        # extraction directory.  Defaults may refer to bundled demo resources.
+        bundled = getattr(sys, "_MEIPASS", None)
+        if bundled:
+            candidate = Path(bundled) / path
+            if candidate.exists():
+                return candidate
         path = root / path
     return path
 

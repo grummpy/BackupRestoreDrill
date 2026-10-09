@@ -16,7 +16,9 @@ from backuprestoredrill.docker import DOCKER_SETUP, DockerCLI, DockerError
 from backuprestoredrill.wordpress import WordPressError, replace_site_urls, rewrite_wp_config
 
 NGINX_IMAGE = "nginx:1.27-alpine"
-PHP_IMAGE = "php:8.2-apache"
+# The maintained WordPress image includes the MySQL PHP extensions that the
+# bare php:8.2-apache image lacks.
+PHP_IMAGE = "wordpress:6.6.2-php8.2-apache"
 MARIADB_IMAGE = "mariadb:11.4"
 
 NGINX_CONF = """server {
@@ -70,6 +72,7 @@ class Sandbox:
         self.mode = ""
         self.base_url: str | None = None
         self.torn_down = False
+        self.cleanup_problems: list[str] = []
         self._httpd: ThreadingHTTPServer | None = None
         self.db_password = ""
 
@@ -223,7 +226,6 @@ class Sandbox:
     def teardown(self) -> None:
         if self.torn_down:
             return
-        self.torn_down = True
         problems: list[str] = []
         if self._httpd is not None:
             try:
@@ -235,22 +237,35 @@ class Sandbox:
         if self.docker is not None:
             for container in list(self.containers):
                 try:
-                    self.docker.remove(container)
+                    result = self.docker.remove(container)
+                    if result is not None and result.returncode != 0:
+                        problems.append(f"container {container}: {(result.stderr or result.stdout).strip()}")
+                    else:
+                        self.containers.remove(container)
                 except Exception as exc:  # noqa: BLE001
-                    problems.append(str(exc))
-            self.containers.clear()
-            self.db_container = None
+                    problems.append(f"container {container}: {exc}")
+            if self.db_container not in self.containers:
+                self.db_container = None
             if self.network:
                 try:
-                    self.docker.remove_network(self.network)
+                    result = self.docker.remove_network(self.network)
+                    if result is not None and result.returncode != 0:
+                        problems.append(f"network {self.network}: {(result.stderr or result.stdout).strip()}")
+                    else:
+                        self.network = None
                 except Exception as exc:  # noqa: BLE001
-                    problems.append(str(exc))
-                self.network = None
+                    problems.append(f"network {self.network}: {exc}")
         if self.scratch.exists():
-            shutil.rmtree(self.scratch, ignore_errors=True)
+            try:
+                shutil.rmtree(self.scratch)
+            except OSError as exc:
+                problems.append(f"scratch {self.scratch}: {exc}")
         if problems:
+            self.cleanup_problems = problems
             self.log("Teardown finished with issues: " + "; ".join(problems))
         else:
+            self.cleanup_problems = []
+            self.torn_down = True
             self.log("Sandbox torn down.")
 
     def _docker_ready(self, log_setup: bool = False) -> bool:

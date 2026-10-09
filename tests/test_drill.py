@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from backuprestoredrill.crawler import PageResult
@@ -19,6 +20,52 @@ SQL = (
     "INSERT INTO `wp_options` VALUES (1,'siteurl','https://brochure.example.test','yes');\n"
     'INSERT INTO `wp_options` VALUES (2,\'home\',\'s:29:"https://brochure.example.test";\',\'yes\');\n'
 )
+
+
+def test_frozen_default_demo_resolves_from_bundled_resources(tmp_path: Path, monkeypatch) -> None:
+    from backuprestoredrill.drill import _resolve
+
+    bundle = tmp_path / "bundle"
+    demo = bundle / "examples" / "brochure"
+    demo.mkdir(parents=True)
+    state = tmp_path / "read-only-state"
+    state.mkdir()
+    monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
+    assert _resolve(state, "examples/brochure") == demo
+
+
+def test_frozen_first_drill_and_relaunch_keep_history(tmp_path: Path, monkeypatch) -> None:
+    """A fresh frozen bundle reads its demo while state/history stay writable."""
+    from backuprestoredrill.cli import _load
+    from backuprestoredrill.drill import _resolve, run_drill
+
+    bundle = tmp_path / "bundle"
+    demo = bundle / "examples" / "brochure"
+    demo.mkdir(parents=True)
+    (demo / "index.html").write_text(
+        "<title>Northwind Brochure</title>Welcome to the Northwind brochure", encoding="utf-8"
+    )
+    (demo / "sitemap.xml").write_text("<?xml version='1.0'?><urlset></urlset>", encoding="utf-8")
+    (bundle / "config.example.yaml").write_text(
+        (Path(__file__).parents[1] / "config.example.yaml").read_text(), encoding="utf-8"
+    )
+    state = tmp_path / "state"
+    unrelated = tmp_path / "elsewhere"
+    unrelated.mkdir()
+    monkeypatch.chdir(unrelated)
+    monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
+    config, history, reports, work = _load(state)
+    result = run_drill(
+        config.site("brochure"), root=state, history=history, reports_dir=reports, work_root=work,
+        static_only=True, crawl_fn=lambda url, site: [PageResult(url=url, status=200, ok=True)],
+    )
+    assert result.passed
+    history.close()
+    _config2, history2, _reports2, _work2 = _load(state)
+    assert history2.latest("brochure").passed
+    history2.close()
+    # The same writable state root remains usable on a subsequent launch.
+    assert _resolve(state, "examples/brochure") == demo
 
 
 class FakeDocker:
@@ -53,6 +100,82 @@ class FakeDocker:
 
     def remove(self, container: str) -> None:
         self.removed.append(container)
+
+
+def test_teardown_failure_keeps_owned_ids_and_fails_drill(tmp_path: Path) -> None:
+    class FailingRemove(FakeDocker):
+        def remove(self, container):
+            self.removed.append(container)
+            return RunResult(1, "", "permission denied")
+
+        def remove_network(self, name):
+            self.removed_networks.append(name)
+            return RunResult(1, "", "still attached")
+
+    backup, dump = _layout(tmp_path)
+    result, history = _run(
+        tmp_path,
+        site=_site(backup, dump),
+        docker=FailingRemove(),
+        crawl_fn=lambda url, site: [PageResult(url=url, status=200, ok=True)],
+    )
+    assert not result.passed
+    assert not result.torn_down
+    assert result.error and "Incomplete sandbox cleanup" in result.error
+    assert history.latest("journal").passed is False
+
+
+def test_teardown_exception_keeps_owned_ids_and_fails_drill(tmp_path: Path) -> None:
+    class RaisingRemove(FakeDocker):
+        def remove(self, container):
+            raise RuntimeError("remove exploded")
+
+        def remove_network(self, name):
+            raise RuntimeError("network remove exploded")
+
+    backup, dump = _layout(tmp_path)
+    result, _history = _run(
+        tmp_path, site=_site(backup, dump), docker=RaisingRemove(),
+        crawl_fn=lambda url, site: [PageResult(url=url, status=200, ok=True)],
+    )
+    assert not result.passed and not result.torn_down
+    assert "Incomplete sandbox cleanup" in (result.error or "")
+
+
+def test_scratch_removal_failure_is_not_claimed_clean(tmp_path: Path, monkeypatch) -> None:
+    import backuprestoredrill.sandbox as sandbox_module
+    from backuprestoredrill.sandbox import Sandbox
+
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    monkeypatch.setattr(sandbox_module.shutil, "rmtree", lambda path: (_ for _ in ()).throw(OSError("busy")))
+    sandbox = Sandbox(docker=None, static_only=True, log=lambda message: None, scratch=scratch)
+    sandbox.teardown()
+    assert not sandbox.torn_down
+    assert any("scratch" in problem for problem in sandbox.cleanup_problems)
+
+
+def test_partial_cleanup_retry_retains_only_residual_ids(tmp_path: Path) -> None:
+    from backuprestoredrill.sandbox import Sandbox
+
+    class Partial(FakeDocker):
+        def __init__(self):
+            super().__init__()
+            self.fail = True
+        def remove(self, name):
+            self.removed.append(name)
+            return RunResult(1, "", "busy") if name == "bad" and self.fail else RunResult(0, "", "")
+        def remove_network(self, name): return RunResult(0, "", "")
+
+    docker = Partial()
+    sandbox = Sandbox(docker=docker, static_only=False, log=lambda message: None, scratch=tmp_path / "scratch")
+    sandbox.containers = ["good", "bad"]
+    sandbox.network = "net"
+    sandbox.teardown()
+    assert sandbox.containers == ["bad"] and sandbox.network is None and sandbox.cleanup_problems
+    docker.fail = False
+    sandbox.teardown()
+    assert sandbox.torn_down and sandbox.containers == [] and sandbox.cleanup_problems == []
 
 
 def _layout(tmp_path: Path):
@@ -141,7 +264,7 @@ def test_wordpress_restore_with_mocked_docker(tmp_path: Path) -> None:
     assert any(item and item.startswith("127.0.0.1:") for item in publishes)
     assert all(item is None or item.startswith("127.0.0.1:") for item in publishes)
     assert any(call["image"].startswith("mariadb") and call["publish"] is None for call in fake.calls)
-    assert any(call["image"].startswith("php") for call in fake.calls)
+    assert any(call["image"] == "wordpress:6.6.2-php8.2-apache" for call in fake.calls)
     assert any("brochure.example.test:127.0.0.1" in (call.get("extra_hosts") or []) for call in fake.calls)
     assert fake.removed
     assert fake.removed_networks
@@ -151,7 +274,7 @@ def test_wordpress_restore_with_mocked_docker(tmp_path: Path) -> None:
     assert result.report_path is not None
     report = result.report_path.read_text(encoding="utf-8")
     assert "PASS" in report
-    assert "Production was not modified" in report
+    assert "no FTP, SSH, or DNS changes" in report
 
 
 def test_teardown_runs_when_crawl_fails(tmp_path: Path) -> None:
@@ -180,7 +303,7 @@ def test_teardown_runs_when_crawl_fails(tmp_path: Path) -> None:
 
 def test_teardown_runs_when_php_container_fails(tmp_path: Path) -> None:
     backup, dump = _layout(tmp_path)
-    fake = FakeDocker(fail_image="php")
+    fake = FakeDocker(fail_image="wordpress")
     result, _history = _run(tmp_path, site=_site(backup, dump), docker=fake)
     assert result.passed is False
     assert result.torn_down is True

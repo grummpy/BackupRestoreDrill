@@ -52,12 +52,12 @@ class DockerCLI:
         return True, f"Docker {version}"
 
     def create_network(self, name: str) -> None:
-        result = self._runner(["network", "create", name], input=None, timeout=30)
-        if result.returncode != 0 and "already exists" not in (result.stderr or ""):
+        result = self._runner(["network", "create", "--label", "backuprestoredrill=1", name], input=None, timeout=30)
+        if result.returncode != 0:
             raise DockerError(result.stderr.strip() or "Could not create the sandbox network.")
 
-    def remove_network(self, name: str) -> None:
-        self._runner(["network", "rm", name], input=None, timeout=30)
+    def remove_network(self, name: str) -> RunResult:
+        return self._runner(["network", "rm", name], input=None, timeout=30)
 
     def run(
         self,
@@ -74,7 +74,7 @@ class DockerCLI:
     ) -> str:
         if publish is not None and not publish.startswith("127.0.0.1:"):
             raise DockerError("Sandbox ports must bind to 127.0.0.1 only.")
-        args = ["run", "-d", "--name", name, "--network", network]
+        args = ["run", "-d", "--name", name, "--label", "backuprestoredrill=1", "--network", network]
         for alias in aliases or []:
             args += ["--network-alias", alias]
         for host in extra_hosts or []:
@@ -113,27 +113,27 @@ class DockerCLI:
         result = self._runner(["logs", "--tail", "80", container], input=None, timeout=30)
         return (result.stdout + result.stderr)[-4000:]
 
-    def remove(self, container: str) -> None:
-        self._runner(["rm", "-f", container], input=None, timeout=60)
+    def remove(self, container: str) -> RunResult:
+        return self._runner(["rm", "-f", container], input=None, timeout=60)
 
     def list_sandbox_ids(self) -> list[str]:
         result = self._runner(
-            ["ps", "-aq", "--filter", "name=brd-"],
+            ["ps", "-aq", "--filter", "label=backuprestoredrill=1"],
             input=None,
             timeout=30,
         )
         if result.returncode != 0:
-            return []
+            raise DockerError(result.stderr.strip() or "Could not discover owned sandbox containers.")
         return [line for line in result.stdout.split() if line]
 
     def list_sandbox_networks(self) -> list[str]:
         result = self._runner(
-            ["network", "ls", "--filter", "name=brd-", "--format", "{{.Name}}"],
+            ["network", "ls", "--filter", "label=backuprestoredrill=1", "--format", "{{.Name}}"],
             input=None,
             timeout=30,
         )
         if result.returncode != 0:
-            return []
+            raise DockerError(result.stderr.strip() or "Could not discover owned sandbox networks.")
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 

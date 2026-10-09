@@ -33,7 +33,7 @@ For each site in `data/config.yaml`:
 
 The web UI lists each site, the last result, how old it is, and a warning when a site has not passed a drill in over 35 days. **Run drill now** streams a live log. The report shows pass or fail for each URL.
 
-Nothing here changes production. There is no FTP, no SSH, and no DNS update. The published container port is bound to `127.0.0.1`. The database port is not published. The production hostname is mapped to `127.0.0.1` inside the sandbox so a stray request stays there.
+Nothing here intentionally changes production: there is no FTP, SSH, or DNS update. The published container port is bound to `127.0.0.1`, the database port is not published, and the configured production hostname is mapped to loopback inside the sandbox. Docker bridge networking can still allow other outbound traffic from restored code, so use only disposable synthetic fixtures for validation.
 
 ## Hostinger API
 

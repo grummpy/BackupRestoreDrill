@@ -73,7 +73,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("cleanup", help="Remove leftover brd- sandbox containers")
 
     args = parser.parse_args(argv)
-    root = (args.root or Path.cwd()).resolve()
+    # Bundled application resources are immutable; state belongs beside the
+    # user's writable configuration, not in the launcher's current directory.
+    bundled = getattr(sys, "_MEIPASS", None)
+    root = (args.root or (Path.home() / ".backuprestoredrill" if bundled else Path.cwd())).resolve()
     command = args.command or "serve"
     try:
         if command == "serve":
@@ -110,7 +113,8 @@ def ensure_layout(root: Path) -> tuple[Path, Path, Path]:
     reports.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     config_path = data / "config.yaml"
-    example = root / "config.example.yaml"
+    bundled = getattr(sys, "_MEIPASS", None)
+    example = (Path(bundled) / "config.example.yaml") if bundled else root / "config.example.yaml"
     if not config_path.exists():
         if not example.exists():
             raise ConfigError("config.example.yaml is missing, so there is nothing to start from.")
@@ -296,10 +300,19 @@ def _cleanup() -> int:
         print(detail)
         return 1
     removed = 0
+    problems: list[str] = []
     for container in docker.list_sandbox_ids():
-        docker.remove(container)
-        removed += 1
+        result = docker.remove(container)
+        if result.returncode == 0:
+            removed += 1
+        else:
+            problems.append(f"container {container}: {(result.stderr or result.stdout).strip()}")
     for network in docker.list_sandbox_networks():
-        docker.remove_network(network)
+        result = docker.remove_network(network)
+        if result.returncode != 0:
+            problems.append(f"network {network}: {(result.stderr or result.stdout).strip()}")
+    if problems:
+        print("Cleanup incomplete; residual resources are owned by this run: " + "; ".join(problems), file=sys.stderr)
+        return 1
     print(f"Removed {removed} sandbox container(s).")
     return 0
