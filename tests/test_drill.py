@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from backuprestoredrill.crawler import PageResult
 from backuprestoredrill.docker import DockerError, RunResult
@@ -42,16 +42,23 @@ def test_frozen_first_drill_and_relaunch_keep_history(tmp_path: Path, monkeypatc
     bundle = tmp_path / "bundle"
     demo = bundle / "examples" / "brochure"
     demo.mkdir(parents=True)
-    (demo / "index.html").write_text("<title>Northwind Brochure</title>Welcome to the Northwind brochure", encoding="utf-8")
+    (demo / "index.html").write_text(
+        "<title>Northwind Brochure</title>Welcome to the Northwind brochure", encoding="utf-8"
+    )
     (demo / "sitemap.xml").write_text("<?xml version='1.0'?><urlset></urlset>", encoding="utf-8")
-    (bundle / "config.example.yaml").write_text((Path(__file__).parents[1] / "config.example.yaml").read_text(), encoding="utf-8")
+    (bundle / "config.example.yaml").write_text(
+        (Path(__file__).parents[1] / "config.example.yaml").read_text(), encoding="utf-8"
+    )
     state = tmp_path / "state"
     unrelated = tmp_path / "elsewhere"
     unrelated.mkdir()
     monkeypatch.chdir(unrelated)
     monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
     config, history, reports, work = _load(state)
-    result = run_drill(config.site("brochure"), root=state, history=history, reports_dir=reports, work_root=work, static_only=True, crawl_fn=lambda url, site: [PageResult(url=url, status=200, ok=True)])
+    result = run_drill(
+        config.site("brochure"), root=state, history=history, reports_dir=reports, work_root=work,
+        static_only=True, crawl_fn=lambda url, site: [PageResult(url=url, status=200, ok=True)],
+    )
     assert result.passed
     history.close()
     _config2, history2, _reports2, _work2 = _load(state)
@@ -136,8 +143,8 @@ def test_teardown_exception_keeps_owned_ids_and_fails_drill(tmp_path: Path) -> N
 
 
 def test_scratch_removal_failure_is_not_claimed_clean(tmp_path: Path, monkeypatch) -> None:
-    from backuprestoredrill.sandbox import Sandbox
     import backuprestoredrill.sandbox as sandbox_module
+    from backuprestoredrill.sandbox import Sandbox
 
     scratch = tmp_path / "scratch"
     scratch.mkdir()
