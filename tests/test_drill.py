@@ -32,6 +32,31 @@ def test_frozen_default_demo_resolves_from_bundled_resources(tmp_path: Path, mon
     state.mkdir()
     monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
     assert _resolve(state, "examples/brochure") == demo
+
+
+def test_frozen_first_drill_and_relaunch_keep_history(tmp_path: Path, monkeypatch) -> None:
+    """A fresh frozen bundle reads its demo while state/history stay writable."""
+    from backuprestoredrill.cli import _load
+    from backuprestoredrill.drill import _resolve, run_drill
+
+    bundle = tmp_path / "bundle"
+    demo = bundle / "examples" / "brochure"
+    demo.mkdir(parents=True)
+    (demo / "index.html").write_text("<title>Northwind Brochure</title>Welcome to the Northwind brochure", encoding="utf-8")
+    (demo / "sitemap.xml").write_text("<?xml version='1.0'?><urlset></urlset>", encoding="utf-8")
+    (bundle / "config.example.yaml").write_text((Path(__file__).parents[1] / "config.example.yaml").read_text(), encoding="utf-8")
+    state = tmp_path / "state"
+    unrelated = tmp_path / "elsewhere"
+    unrelated.mkdir()
+    monkeypatch.chdir(unrelated)
+    monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
+    config, history, reports, work = _load(state)
+    result = run_drill(config.site("brochure"), root=state, history=history, reports_dir=reports, work_root=work, static_only=True, crawl_fn=lambda url, site: [PageResult(url=url, status=200, ok=True)])
+    assert result.passed
+    history.close()
+    _config2, history2, _reports2, _work2 = _load(state)
+    assert history2.latest("brochure").passed
+    history2.close()
     # The same writable state root remains usable on a subsequent launch.
     assert _resolve(state, "examples/brochure") == demo
 
