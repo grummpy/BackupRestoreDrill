@@ -53,7 +53,7 @@ class DockerCLI:
 
     def create_network(self, name: str) -> None:
         result = self._runner(["network", "create", "--label", "backuprestoredrill=1", name], input=None, timeout=30)
-        if result.returncode != 0 and "already exists" not in (result.stderr or ""):
+        if result.returncode != 0:
             raise DockerError(result.stderr.strip() or "Could not create the sandbox network.")
 
     def remove_network(self, name: str) -> RunResult:

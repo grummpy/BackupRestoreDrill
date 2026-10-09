@@ -91,6 +91,23 @@ def test_teardown_failure_keeps_owned_ids_and_fails_drill(tmp_path: Path) -> Non
     assert history.latest("journal").passed is False
 
 
+def test_teardown_exception_keeps_owned_ids_and_fails_drill(tmp_path: Path) -> None:
+    class RaisingRemove(FakeDocker):
+        def remove(self, container):
+            raise RuntimeError("remove exploded")
+
+        def remove_network(self, name):
+            raise RuntimeError("network remove exploded")
+
+    backup, dump = _layout(tmp_path)
+    result, _history = _run(
+        tmp_path, site=_site(backup, dump), docker=RaisingRemove(),
+        crawl_fn=lambda url, site: [PageResult(url=url, status=200, ok=True)],
+    )
+    assert not result.passed and not result.torn_down
+    assert "Incomplete sandbox cleanup" in (result.error or "")
+
+
 def _layout(tmp_path: Path):
     backup = tmp_path / "backup"
     backup.mkdir()
