@@ -56,8 +56,8 @@ class DockerCLI:
         if result.returncode != 0 and "already exists" not in (result.stderr or ""):
             raise DockerError(result.stderr.strip() or "Could not create the sandbox network.")
 
-    def remove_network(self, name: str) -> None:
-        self._runner(["network", "rm", name], input=None, timeout=30)
+    def remove_network(self, name: str) -> RunResult:
+        return self._runner(["network", "rm", name], input=None, timeout=30)
 
     def run(
         self,
@@ -113,8 +113,8 @@ class DockerCLI:
         result = self._runner(["logs", "--tail", "80", container], input=None, timeout=30)
         return (result.stdout + result.stderr)[-4000:]
 
-    def remove(self, container: str) -> None:
-        self._runner(["rm", "-f", container], input=None, timeout=60)
+    def remove(self, container: str) -> RunResult:
+        return self._runner(["rm", "-f", container], input=None, timeout=60)
 
     def list_sandbox_ids(self) -> list[str]:
         result = self._runner(

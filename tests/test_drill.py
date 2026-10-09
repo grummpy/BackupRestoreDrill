@@ -141,7 +141,7 @@ def test_wordpress_restore_with_mocked_docker(tmp_path: Path) -> None:
     assert any(item and item.startswith("127.0.0.1:") for item in publishes)
     assert all(item is None or item.startswith("127.0.0.1:") for item in publishes)
     assert any(call["image"].startswith("mariadb") and call["publish"] is None for call in fake.calls)
-    assert any(call["image"].startswith("php") for call in fake.calls)
+    assert any(call["image"] == "wordpress:6.6.2-php8.2-apache" for call in fake.calls)
     assert any("brochure.example.test:127.0.0.1" in (call.get("extra_hosts") or []) for call in fake.calls)
     assert fake.removed
     assert fake.removed_networks
@@ -180,7 +180,7 @@ def test_teardown_runs_when_crawl_fails(tmp_path: Path) -> None:
 
 def test_teardown_runs_when_php_container_fails(tmp_path: Path) -> None:
     backup, dump = _layout(tmp_path)
-    fake = FakeDocker(fail_image="php")
+    fake = FakeDocker(fail_image="wordpress")
     result, _history = _run(tmp_path, site=_site(backup, dump), docker=fake)
     assert result.passed is False
     assert result.torn_down is True
