@@ -32,6 +32,8 @@ def test_frozen_default_demo_resolves_from_bundled_resources(tmp_path: Path, mon
     state.mkdir()
     monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
     assert _resolve(state, "examples/brochure") == demo
+    # The same writable state root remains usable on a subsequent launch.
+    assert _resolve(state, "examples/brochure") == demo
 
 
 class FakeDocker:
