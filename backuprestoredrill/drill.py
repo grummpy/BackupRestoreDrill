@@ -134,6 +134,10 @@ def run_drill(
         log(f"Drill failed: {exc}")
     finally:
         sandbox.teardown()
+    if sandbox.cleanup_problems:
+        passed = False
+        cleanup_error = "Incomplete sandbox cleanup: " + "; ".join(sandbox.cleanup_problems)
+        error = f"{error}; {cleanup_error}" if error else cleanup_error
     finished = utcnow()
     summary = _summary(passed, pages, error)
     record = DrillRecord(

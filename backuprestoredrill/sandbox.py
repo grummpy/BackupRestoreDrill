@@ -72,6 +72,7 @@ class Sandbox:
         self.mode = ""
         self.base_url: str | None = None
         self.torn_down = False
+        self.cleanup_problems: list[str] = []
         self._httpd: ThreadingHTTPServer | None = None
         self.db_password = ""
 
@@ -225,7 +226,6 @@ class Sandbox:
     def teardown(self) -> None:
         if self.torn_down:
             return
-        self.torn_down = True
         problems: list[str] = []
         if self._httpd is not None:
             try:
@@ -242,8 +242,9 @@ class Sandbox:
                         problems.append(f"container {container}: {(result.stderr or result.stdout).strip()}")
                 except Exception as exc:  # noqa: BLE001
                     problems.append(str(exc))
-            self.containers.clear()
-            self.db_container = None
+            if not problems:
+                self.containers.clear()
+                self.db_container = None
             if self.network:
                 try:
                     result = self.docker.remove_network(self.network)
@@ -251,12 +252,15 @@ class Sandbox:
                         problems.append(f"network {self.network}: {(result.stderr or result.stdout).strip()}")
                 except Exception as exc:  # noqa: BLE001
                     problems.append(str(exc))
-                self.network = None
+                if not problems:
+                    self.network = None
         if self.scratch.exists():
             shutil.rmtree(self.scratch, ignore_errors=True)
         if problems:
+            self.cleanup_problems = problems
             self.log("Teardown finished with issues: " + "; ".join(problems))
         else:
+            self.torn_down = True
             self.log("Sandbox torn down.")
 
     def _docker_ready(self, log_setup: bool = False) -> bool:
