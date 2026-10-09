@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 from backuprestoredrill.crawler import PageResult
 from backuprestoredrill.docker import DockerError, RunResult
@@ -19,6 +20,18 @@ SQL = (
     "INSERT INTO `wp_options` VALUES (1,'siteurl','https://brochure.example.test','yes');\n"
     'INSERT INTO `wp_options` VALUES (2,\'home\',\'s:29:"https://brochure.example.test";\',\'yes\');\n'
 )
+
+
+def test_frozen_default_demo_resolves_from_bundled_resources(tmp_path: Path, monkeypatch) -> None:
+    from backuprestoredrill.drill import _resolve
+
+    bundle = tmp_path / "bundle"
+    demo = bundle / "examples" / "brochure"
+    demo.mkdir(parents=True)
+    state = tmp_path / "read-only-state"
+    state.mkdir()
+    monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
+    assert _resolve(state, "examples/brochure") == demo
 
 
 class FakeDocker:
