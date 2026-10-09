@@ -68,6 +68,29 @@ class FakeDocker:
         self.removed.append(container)
 
 
+def test_teardown_failure_keeps_owned_ids_and_fails_drill(tmp_path: Path) -> None:
+    class FailingRemove(FakeDocker):
+        def remove(self, container):
+            self.removed.append(container)
+            return RunResult(1, "", "permission denied")
+
+        def remove_network(self, name):
+            self.removed_networks.append(name)
+            return RunResult(1, "", "still attached")
+
+    backup, dump = _layout(tmp_path)
+    result, history = _run(
+        tmp_path,
+        site=_site(backup, dump),
+        docker=FailingRemove(),
+        crawl_fn=lambda url, site: [PageResult(url=url, status=200, ok=True)],
+    )
+    assert not result.passed
+    assert not result.torn_down
+    assert result.error and "Incomplete sandbox cleanup" in result.error
+    assert history.latest("journal").passed is False
+
+
 def _layout(tmp_path: Path):
     backup = tmp_path / "backup"
     backup.mkdir()
