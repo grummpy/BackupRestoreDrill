@@ -113,6 +113,25 @@ class DockerCLI:
         result = self._runner(["logs", "--tail", "80", container], input=None, timeout=30)
         return (result.stdout + result.stderr)[-4000:]
 
+    def image_identity(self, image: str) -> str | None:
+        """Return Docker's resolved immutable identity after an image has been used.
+
+        Tags are useful instructions, but are mutable.  A completed drill records a
+        repo digest when Docker exposes one so its report can distinguish a declared
+        tag from the image that actually ran.  This is deliberately best-effort: an
+        unavailable local inspect result must not turn a successful sandbox check
+        into a failed drill.
+        """
+        result = self._runner(
+            ["image", "inspect", "--format", "{{index .RepoDigests 0}}", image],
+            input=None,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            return None
+        identity = result.stdout.strip()
+        return identity or None
+
     def remove(self, container: str) -> RunResult:
         return self._runner(["rm", "-f", container], input=None, timeout=60)
 

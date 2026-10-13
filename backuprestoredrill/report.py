@@ -17,6 +17,7 @@ def write_report(
     pages: list[PageResult],
     db_ok: bool | None,
     log_lines: list[str],
+    runtime_identities: list[str] | None = None,
 ) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -26,6 +27,7 @@ def write_report(
             pages=pages,
             db_ok=db_ok,
             log_lines=log_lines,
+            runtime_identities=runtime_identities,
         ),
         encoding="utf-8",
     )
@@ -39,6 +41,7 @@ def render_report(
     pages: list[PageResult],
     db_ok: bool | None,
     log_lines: list[str],
+    runtime_identities: list[str] | None = None,
 ) -> str:
     status = "PASS" if record.passed else "FAIL"
     rows = "\n".join(_page_row(page) for page in pages) or (
@@ -52,6 +55,12 @@ def render_report(
         db_line = "FAIL — the sandbox database did not answer."
     log_html = escape("\n".join(log_lines)) or "(no log)"
     error = f"<p class='warn'>{escape(record.error)}</p>" if record.error else ""
+    runtime_rows = "".join(f"<li>{escape(item)}</li>" for item in runtime_identities or [])
+    runtime = (
+        f"<ul>{runtime_rows}</ul>"
+        if runtime_rows
+        else "<p class='muted'>No container image ran for this drill.</p>"
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -97,6 +106,10 @@ def render_report(
   </table>
   <h2>Database</h2>
   <p>{escape(db_line)}</p>
+  <h2>Container runtime identity</h2>
+  {runtime}
+  <p class="muted">A declared tag is not a digest. “Digest unavailable” means this report cannot prove
+  the exact pulled image.</p>
   <h2>Log</h2>
   <pre>{log_html}</pre>
   <p class="muted">Sandbox-only workflow: it makes no FTP, SSH, or DNS changes.

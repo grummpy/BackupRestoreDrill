@@ -73,6 +73,7 @@ class Sandbox:
         self.base_url: str | None = None
         self.torn_down = False
         self.cleanup_problems: list[str] = []
+        self.runtime_identities: list[str] = []
         self._httpd: ThreadingHTTPServer | None = None
         self.db_password = ""
 
@@ -103,6 +104,7 @@ class Sandbox:
             env={},
         )
         self.containers.append(container)
+        self._record_image(NGINX_IMAGE)
         url = f"http://127.0.0.1:{port}"
         self._wait_http(url, container)
         self.base_url = url
@@ -175,6 +177,7 @@ class Sandbox:
             extra_hosts=extra_hosts,
         )
         self.containers.append(db_id)
+        self._record_image(MARIADB_IMAGE)
         self.db_container = db_id
         self._wait_db(db_id)
         self.log("Importing the SQL dump into the sandbox database.")
@@ -206,6 +209,7 @@ class Sandbox:
             extra_hosts=extra_hosts,
         )
         self.containers.append(web_id)
+        self._record_image(PHP_IMAGE)
         self._wait_http(site_url, web_id)
         self.base_url = site_url
         return site_url
@@ -284,6 +288,22 @@ class Sandbox:
         self.docker.create_network(name)
         self.network = name
         return name
+
+    def _record_image(self, image: str) -> None:
+        """Record the post-pull image identity without requiring it to be present."""
+        identity = None
+        inspect = getattr(self.docker, "image_identity", None)
+        if callable(inspect):
+            try:
+                identity = inspect(image)
+            except Exception:  # noqa: BLE001 - provenance must not break cleanup
+                identity = None
+        if identity:
+            detail = f"{image} resolved as {identity}"
+        else:
+            detail = f"{image} declared; immutable digest unavailable"
+        self.runtime_identities.append(detail)
+        self.log("Runtime image: " + detail)
 
     def _python_server(self, docroot: Path) -> str:
         handler = partial(_QuietHandler, directory=str(docroot))
