@@ -160,6 +160,7 @@ def run_drill(
             pages=pages,
             db_ok=db_ok,
             log_lines=log.lines,
+            runtime_identities=sandbox.runtime_identities,
         )
         record.report_path = str(report_path)
     except OSError as exc:

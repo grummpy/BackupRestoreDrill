@@ -24,7 +24,7 @@ For each site in `data/config.yaml`:
 1. Copy a folder, or extract a `.zip`, `.tar`, `.tar.gz`, or `.tgz`, into a scratch directory. Paths that would escape that directory are rejected.
 2. Serve the files.
    - Static sites use nginx in Docker when Docker is running.
-   - WordPress sites use `php:8.2-apache` plus `mariadb:11.4`. `wp-config.php` is pointed at the sandbox database, and the production URL in the SQL dump is rewritten to `http://127.0.0.1:<port>` (including PHP serialized string lengths). `WP_HOME` and `WP_SITEURL` are set to that same URL.
+   - WordPress sites use `wordpress:6.6.2-php8.2-apache` plus `mariadb:11.4`. `wp-config.php` is pointed at the sandbox database, and the production URL in the SQL dump is rewritten to `http://127.0.0.1:<port>` (including PHP serialized string lengths). `WP_HOME` and `WP_SITEURL` are set to that same URL. Reports record Docker's resolved image digest when it is available; a tag alone is not immutable runtime evidence.
    - If Docker is missing, static sites fall back to Python's built-in web server. The dashboard explains how to install Docker. WordPress drills stop with that same message, because they need PHP and MariaDB.
 3. Request the URLs you listed, and the sitemap when `use_sitemap` is true. The crawler only talks to `127.0.0.1`. Links that still use the production host are rewritten to the sandbox and checked there. Other hosts are not requested.
 4. Record HTTP status, title text, body snippets, PHP error lines, broken internal links, and (for WordPress) whether MariaDB answers `SELECT 1`.
@@ -114,7 +114,7 @@ On macOS this produces a `.app` using `assets/icon.icns`. On Windows it produces
 - Docker was not available in the environment used to build this repository, so a real nginx or WordPress container drill has not been run here. Static-only drills (Python's web server) have been run. WordPress container behavior is covered with a mocked Docker client.
 - The macOS `.command` launcher and the Windows `.bat` launcher were not executed on those operating systems.
 - The cron, launchd, and Task Scheduler installers were not registered on a machine during development. The tests check the files and commands they would write.
-- SQL search-replace understands PHP `s:N:"..."` lengths in the dump text. A dump that backslash-escapes quotes inside serialized strings can still need a look. `WP_HOME` and `WP_SITEURL` override the home URL even so.
+- SQL search-replace understands PHP `s:N:"..."` lengths in the dump text, including nested values and UTF-8 byte lengths. A dump that uses uncommon serialization extensions can still need a look. `WP_HOME` and `WP_SITEURL` override the home URL even so.
 - Symlinks in a backup folder that point outside the folder are rejected. In-folder symlinks are skipped rather than copied.
 - Containers sit on a private bridge. Only the web port is published, and only on `127.0.0.1`. Docker's bridge can still have outbound internet; the crawler never follows it, and the production host is pinned to loopback inside the container.
 - Search-replace and the crawler do not log in to wp-admin or submit forms.

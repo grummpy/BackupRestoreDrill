@@ -98,6 +98,9 @@ class FakeDocker:
     def logs(self, container: str) -> str:
         return ""
 
+    def image_identity(self, image: str) -> str:
+        return f"{image}@sha256:synthetic"
+
     def remove(self, container: str) -> None:
         self.removed.append(container)
 
@@ -275,6 +278,8 @@ def test_wordpress_restore_with_mocked_docker(tmp_path: Path) -> None:
     report = result.report_path.read_text(encoding="utf-8")
     assert "PASS" in report
     assert "no FTP, SSH, or DNS changes" in report
+    assert "wordpress:6.6.2-php8.2-apache@sha256:synthetic" in report
+    assert "mariadb:11.4@sha256:synthetic" in report
 
 
 def test_teardown_runs_when_crawl_fails(tmp_path: Path) -> None:
